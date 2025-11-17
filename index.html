@@ -209,7 +209,9 @@
     }
 
     function getKommunKod(props) {
-      return String(props.id).padStart(4, '0');
+  // I din GeoJSON ligger rätt kod redan i 'id', t.ex. "0180"
+  return String(props.id);
+}
     }
 
     // ------- Info-ruta -------
