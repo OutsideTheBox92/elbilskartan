@@ -1,2 +1,2 @@
 # Elbilskartan Sverige
-Ladda upp dessa filer till GitHub.
+Interaktiv karta över andelen elbilar i Sverige (Kolada KPI N07945)
