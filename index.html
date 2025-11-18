@@ -125,7 +125,7 @@
 
   <div id="map"></div>
   <div class="source-note">
-    Källa: Kolada (KPI N07945). Kommungränser: Sveriges dataportal.
+    Källa: Kolada (KPI N07945, API v2). Kommungränser: Sveriges dataportal.
   </div>
 
   <!-- Leaflet JS -->
@@ -137,28 +137,28 @@
 
   <script>
     // ------- Grundinställningar -------
-    const KOLADA_KPI_ID = "N07945";   // Elbilar, andel (%)
-    const KOLADA_BASE_URL = "https://api.kolada.se/v3";
-    const TARGET_YEAR = null;         // sätt t.ex. 2024 om du vill låsa årtal
+    const KOLADA_KPI_ID = "N07945";                    // Elbilar, andel (%)
+    const KOLADA_BASE_URL = "https://api.kolada.se/v2";
+    const TARGET_YEAR = null;                          // sätt t.ex. 2023 om du vill låsa årtal
 
-    const map = L.map('map').setView([62.0, 15.0], 4.5);
+    const map = L.map("map").setView([62.0, 15.0], 4.5);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: "&copy; OpenStreetMap contributors",
     }).addTo(map);
 
-    // Blå färgskala
+    // ------- Färgskala -------
     function getColor(d) {
-      return d > 40 ? '#08306b' :
-             d > 30 ? '#08519c' :
-             d > 20 ? '#2171b5' :
-             d > 15 ? '#4292c6' :
-             d > 10 ? '#6baed6' :
-             d > 5  ? '#9ecae1' :
-             d > 1  ? '#c6dbef' :
-             d > 0  ? '#deebf7' :
-                      '#f7fbff';
+      return d > 40 ? "#08306b" :
+             d > 30 ? "#08519c" :
+             d > 20 ? "#2171b5" :
+             d > 15 ? "#4292c6" :
+             d > 10 ? "#6baed6" :
+             d > 5  ? "#9ecae1" :
+             d > 1  ? "#c6dbef" :
+             d > 0  ? "#deebf7" :
+                      "#f7fbff";
     }
 
     function style(feature) {
@@ -167,17 +167,15 @@
         fillColor: getColor(share),
         weight: 1,
         opacity: 1,
-        color: 'white',
-        dashArray: '3',
-        fillOpacity: 0.8
+        color: "white",
+        dashArray: "3",
+        fillOpacity: 0.8,
       };
     }
 
-    // ------- Hjälpfunktioner för din GeoJSON -------
-    // Din fil har: lan_code, kom_namn, id, geo_point_2d
-
+    // ------- Hjälpfunktioner för GeoJSON -------
     function getKommunNamn(props) {
-      return props.kom_namn || '';
+      return props.kom_namn || "";
     }
 
     function getRegionNamn(props) {
@@ -202,48 +200,51 @@
         "22": "Västernorrlands län",
         "23": "Jämtlands län",
         "24": "Västerbottens län",
-        "25": "Norrbottens län"
+        "25": "Norrbottens län",
       };
       const code = props.lan_code;
-      return mapping[code] || '';
+      return mapping[code] || "";
     }
 
     function getKommunKod(props) {
-  // I din GeoJSON ligger rätt kod redan i 'id', t.ex. "0180"
-  return String(props.id);
-}
+      // I din GeoJSON ligger kommunkoden redan i id, t.ex. "0180"
+      return String(props.id);
     }
 
     // ------- Info-ruta -------
     const info = L.control();
 
     info.onAdd = function () {
-      this._div = L.DomUtil.create('div', 'info');
+      this._div = L.DomUtil.create("div", "info");
       this.update();
       return this._div;
     };
 
     info.update = function (props) {
       if (!props) {
-        this._div.innerHTML = '<h4>Andel elbilar</h4>Håll musen över en kommun';
+        this._div.innerHTML =
+          "<h4>Andel elbilar</h4>Håll musen över en kommun";
       } else {
         const name = getKommunNamn(props);
         const region = getRegionNamn(props);
         const share = (props.ev_share ?? 0).toFixed(1);
         this._div.innerHTML =
-          '<h4>Andel elbilar</h4>' +
-          name + (region ? ', ' + region : '') +
-          '<br/><b>' + share + ' %</b>';
+          "<h4>Andel elbilar</h4>" +
+          name +
+          (region ? ", " + region : "") +
+          "<br/><b>" +
+          share +
+          " %</b>";
       }
     };
 
     info.addTo(map);
 
     // ------- Legend -------
-    const legend = L.control({ position: 'bottomright' });
+    const legend = L.control({ position: "bottomright" });
 
     legend.onAdd = function () {
-      const div = L.DomUtil.create('div', 'legend');
+      const div = L.DomUtil.create("div", "legend");
       const grades = [0, 1, 5, 10, 15, 20, 30, 40];
       const labels = [];
 
@@ -251,12 +252,16 @@
         const from = grades[i];
         const to = grades[i + 1];
         labels.push(
-          '<i style="background:' + getColor(from + 0.01) + '"></i> ' +
-          from + (to ? '&ndash;' + to : '+') + ' %'
+          '<i style="background:' +
+            getColor(from + 0.01) +
+            '"></i> ' +
+            from +
+            (to ? "&ndash;" + to : "+") +
+            " %"
         );
       }
 
-      div.innerHTML = labels.join('<br>');
+      div.innerHTML = labels.join("<br>");
       return div;
     };
 
@@ -272,31 +277,33 @@
 
     function loadStateFromUrl() {
       const params = new URLSearchParams(window.location.search);
-      const regionFromUrl = params.get('region');
-      const minFromUrl = parseFloat(params.get('min'));
-      const maxFromUrl = parseFloat(params.get('max'));
+      const regionFromUrl = params.get("region");
+      const minFromUrl = parseFloat(params.get("min"));
+      const maxFromUrl = parseFloat(params.get("max"));
 
       if (regionFromUrl) {
         currentRegion = regionFromUrl;
-        document.getElementById('searchInput').value = regionFromUrl;
+        document.getElementById("searchInput").value = regionFromUrl;
       }
       if (!isNaN(minFromUrl)) {
         minShare = minFromUrl;
-        document.getElementById('minShare').value = minFromUrl;
+        document.getElementById("minShare").value = minFromUrl;
       }
       if (!isNaN(maxFromUrl)) {
         maxShare = maxFromUrl;
-        document.getElementById('maxShare').value = maxFromUrl;
+        document.getElementById("maxShare").value = maxFromUrl;
       }
     }
 
     function updateUrl() {
       const params = new URLSearchParams();
-      if (currentRegion) params.set('region', currentRegion);
-      if (minShare !== 0)   params.set('min', minShare);
-      if (maxShare !== 100) params.set('max', maxShare);
-      const newUrl = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
-      history.replaceState(null, '', newUrl);
+      if (currentRegion) params.set("region", currentRegion);
+      if (minShare !== 0) params.set("min", minShare);
+      if (maxShare !== 100) params.set("max", maxShare);
+      const newUrl =
+        window.location.pathname +
+        (params.toString() ? "?" + params.toString() : "");
+      history.replaceState(null, "", newUrl);
     }
 
     function featurePassesFilters(feature) {
@@ -304,7 +311,10 @@
       const regionName = getRegionNamn(props);
       const share = props.ev_share || 0;
 
-      if (currentRegion && regionName.toLowerCase() !== currentRegion.toLowerCase()) {
+      if (
+        currentRegion &&
+        regionName.toLowerCase() !== currentRegion.toLowerCase()
+      ) {
         return false;
       }
       if (share < minShare || share > maxShare) {
@@ -330,9 +340,13 @@
           const region = getRegionNamn(props);
           const share = (props.ev_share ?? 0).toFixed(1);
           const popupHtml =
-            '<strong>' + name + '</strong>' +
-            (region ? '<br>' + region : '') +
-            '<br>Andel elbilar: ' + share + ' %';
+            "<strong>" +
+            name +
+            "</strong>" +
+            (region ? "<br>" + region : "") +
+            "<br>Andel elbilar: " +
+            share +
+            " %";
 
           layer.bindPopup(popupHtml);
 
@@ -341,9 +355,9 @@
               const target = e.target;
               target.setStyle({
                 weight: 2,
-                color: '#666',
-                dashArray: '',
-                fillOpacity: 0.9
+                color: "#666",
+                dashArray: "",
+                fillOpacity: 0.9,
               });
               if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
                 target.bringToFront();
@@ -356,9 +370,9 @@
             },
             click: function (e) {
               e.target.openPopup();
-            }
+            },
           });
-        }
+        },
       }).addTo(map);
 
       if (filtered.length) {
@@ -368,17 +382,21 @@
 
     // ------- Sökning (kommun/region) -------
     function handleSearch() {
-      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      const query = document
+        .getElementById("searchInput")
+        .value.trim()
+        .toLowerCase();
       if (!query || !allFeatures.length) return;
 
       // 1. Kommun
-      const kommunFeature = allFeatures.find(f =>
+      const kommunFeature = allFeatures.find((f) =>
         getKommunNamn(f.properties).toLowerCase() === query
       );
 
       if (kommunFeature && geoLayer) {
         const layer = geoLayer.getLayers().find(
-          l => getKommunNamn(l.feature.properties).toLowerCase() === query
+          (l) =>
+            getKommunNamn(l.feature.properties).toLowerCase() === query
         );
         if (layer) {
           map.fitBounds(layer.getBounds());
@@ -389,7 +407,7 @@
       }
 
       // 2. Region
-      const regionFeature = allFeatures.find(f =>
+      const regionFeature = allFeatures.find((f) =>
         getRegionNamn(f.properties).toLowerCase() === query
       );
 
@@ -400,15 +418,21 @@
         return;
       }
 
-      alert('Hittade ingen kommun eller region med namnet: ' + query);
+      alert("Hittade ingen kommun eller region med namnet: " + query);
     }
 
     function handleFilterChange() {
-      const minInput = parseFloat(document.getElementById('minShare').value);
-      const maxInput = parseFloat(document.getElementById('maxShare').value);
+      const minInput = parseFloat(
+        document.getElementById("minShare").value
+      );
+      const maxInput = parseFloat(
+        document.getElementById("maxShare").value
+      );
 
-      minShare = isNaN(minInput) ? 0   : Math.max(0, Math.min(100, minInput));
-      maxShare = isNaN(maxInput) ? 100 : Math.max(0, Math.min(100, maxInput));
+      minShare = isNaN(minInput) ? 0 : Math.max(0, Math.min(100, minInput));
+      maxShare = isNaN(maxInput)
+        ? 100
+        : Math.max(0, Math.min(100, maxInput));
 
       if (minShare > maxShare) {
         const tmp = minShare;
@@ -420,82 +444,57 @@
       renderLayer();
     }
 
-    // ------- Kolada-hämtning -------
+    document
+      .getElementById("searchBtn")
+      .addEventListener("click", handleSearch);
+    document
+      .getElementById("searchInput")
+      .addEventListener("keydown", (e) => {
+        if (e.key === "Enter") handleSearch();
+      });
+    document
+      .getElementById("applyFilterBtn")
+      .addEventListener("click", handleFilterChange);
+
+    // ------- Kolada v2: tolka svar -------
 
     function getLatestValueFromKoladaResponse(data) {
-  if (!data) return null;
+      // v2-data: { values: [ {kpi, municipality, period, values:[{count,gender,status,value}]} ] }
+      if (!data || !Array.isArray(data.values)) return null;
 
-  let rows = null;
+      let best = null;
 
-  // Vanliga varianter: v2/v3 eller wrapper
-  if (Array.isArray(data.values)) {
-    rows = data.values;
-  } else if (Array.isArray(data.data)) {
-    rows = data.data;
-  } else if (Array.isArray(data.results)) {
-    rows = data.results;
-  } else if (Array.isArray(data)) {
-    rows = data;
-  }
+      data.values.forEach((row) => {
+        const period = parseInt(row.period, 10);
+        if (TARGET_YEAR && period !== TARGET_YEAR) return;
 
-  // Tabellformat: columns + data = [ [..], [..] ]
-  if (!rows && Array.isArray(data.columns) && Array.isArray(data.data)) {
-    const cols = data.columns.map(c => c.toLowerCase());
-    const valueIndex = cols.findIndex(c => c.includes('value') || c.includes('värde'));
-    const yearIndex  = cols.findIndex(c => c.includes('year') || c.includes('period'));
-    if (valueIndex !== -1) {
-      rows = data.data.map(r => ({
-        value: Number(r[valueIndex]),
-        year: yearIndex !== -1 ? Number(r[yearIndex]) : null
-      }));
-    }
-  }
+        const vals = Array.isArray(row.values) ? row.values : [];
+        if (!vals.length) return;
 
-  if (!rows || !rows.length) return null;
+        // Välj kön = T om det finns, annars första
+        const v = vals.find((x) => x.gender === "T") || vals[0];
+        if (!v || v.value === null || v.value === undefined) return;
 
-  // Mappa om till enkel struktur om raderna är "råa"
-  rows = rows.map(row => {
-    // Objekt med nycklar
-    if (row && typeof row === 'object' && !Array.isArray(row)) {
-      const year =
-        Number(row.year ?? row.period ?? row.time ?? 0);
-      const value =
-        Number(row.value ?? row.Varde ?? row.varde ?? row.val ?? 0);
-      return { year, value };
-    }
-    // Arrays (om det skulle komma så)
-    return row;
-  });
+        const value = Number(v.value);
+        if (isNaN(value)) return;
 
-  // Filtrera bort rader utan värde
-  rows = rows.filter(r => typeof r.value === 'number' && !isNaN(r.value));
-
-  if (!rows.length) return null;
-
-  // Välj senaste år (om år finns), annars första
-  let best = rows[0];
-  for (let i = 1; i < rows.length; i++) {
-    const r = rows[i];
-    if (r.year && (!best.year || r.year > best.year)) {
-      best = r;
-    }
-  }
-  return best;
-}
-
-      rows.forEach(row => {
-        const year = Number(row.year || row.period || row.time || 0);
-        if (TARGET_YEAR && year !== TARGET_YEAR) return;
-        if (!best || year > best.year) {
-          best = { year, value: Number(row.value) };
+        if (!best || (!isNaN(period) && period > best.year)) {
+          best = { year: period, value };
         }
       });
 
-      if (!best && rows.length) {
-        rows.forEach(row => {
-          const year = Number(row.year || row.period || row.time || 0);
-          if (!best || year > best.year) {
-            best = { year, value: Number(row.value) };
+      // Om vi låste årtal och inte hittade något, gör en andra pass utan årfilter
+      if (!best && TARGET_YEAR) {
+        data.values.forEach((row) => {
+          const period = parseInt(row.period, 10);
+          const vals = Array.isArray(row.values) ? row.values : [];
+          if (!vals.length) return;
+          const v = vals.find((x) => x.gender === "T") || vals[0];
+          if (!v || v.value === null || v.value === undefined) return;
+          const value = Number(v.value);
+          if (isNaN(value)) return;
+          if (!best || (!isNaN(period) && period > best.year)) {
+            best = { year: period, value };
           }
         });
       }
@@ -504,23 +503,33 @@
     }
 
     async function fetchKoladaForMunicipality(code) {
-      const url = `${KOLADA_BASE_URL}/data/municipality/${code}/kpi/${KOLADA_KPI_ID}`;
-      const resp = await fetch(url);
-      if (!resp.ok) {
-        console.warn('Kolada fel för kommun', code, resp.status);
+      // /v2/data/kpi/<KPI>/municipality/<MUNICIPALITY_ID>
+      const url = `${KOLADA_BASE_URL}/data/kpi/${encodeURIComponent(
+        KOLADA_KPI_ID
+      )}/municipality/${encodeURIComponent(code)}`;
+
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.warn("Kolada fel för kommun", code, resp.status);
+          return null;
+        }
+        const data = await resp.json();
+        return getLatestValueFromKoladaResponse(data);
+      } catch (err) {
+        console.error("Fel vid hämtning från Kolada för kommun", code, err);
         return null;
       }
-      const data = await resp.json();
-      return getLatestValueFromKoladaResponse(data);
     }
 
     async function injectKoladaDataIntoGeojson(geojson) {
-      const features = geojson.features;
-      const codes = [...new Set(features.map(f => getKommunKod(f.properties)))];
+      const features = geojson.features || [];
+      const codes = [...new Set(features.map((f) => getKommunKod(f.properties)))];
 
       const results = {};
+
       await Promise.all(
-        codes.map(async code => {
+        codes.map(async (code) => {
           if (!code) return;
           const res = await fetchKoladaForMunicipality(code);
           if (res && !isNaN(res.value)) {
@@ -529,7 +538,7 @@
         })
       );
 
-      features.forEach(feat => {
+      features.forEach((feat) => {
         const props = feat.properties;
         const code = getKommunKod(props);
         const match = results[code];
@@ -549,9 +558,9 @@
 
     (async function init() {
       try {
-        const geoResp = await fetch('kommuner.geojson');
+        const geoResp = await fetch("kommuner.geojson");
         if (!geoResp.ok) {
-          alert('Kunde inte läsa kommuner.geojson');
+          alert("Kunde inte läsa kommuner.geojson");
           return;
         }
         const geojson = await geoResp.json();
@@ -559,16 +568,12 @@
         allFeatures = enriched.features;
         renderLayer();
       } catch (err) {
-        console.error('Fel vid inläsning/injektion:', err);
-        alert('Fel vid inläsning av data. Se konsolen (F12) för detaljer.');
+        console.error("Fel vid inläsning/injektion:", err);
+        alert(
+          "Fel vid inläsning av data. Öppna utvecklarkonsolen (F12) för detaljer."
+        );
       }
     })();
-
-    document.getElementById('searchBtn').addEventListener('click', handleSearch);
-    document.getElementById('searchInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') handleSearch();
-    });
-    document.getElementById('applyFilterBtn').addEventListener('click', handleFilterChange);
   </script>
 </body>
 </html>
