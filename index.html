@@ -13,6 +13,11 @@
     crossorigin=""
   />
 
+  <!-- (frivilligt men bra för LinkedIn-preview) -->
+  <meta property="og:title" content="Elbilskartan Sverige – interaktiv karta över andel elbilar per kommun" />
+  <meta property="og:description" content="Interaktiv Leaflet-karta som visualiserar andelen elbilar per kommun i Sverige baserat på Kolada KPI N07945 och öppna geodata." />
+  <meta property="og:type" content="website" />
+
   <style>
     html, body {
       margin: 0;
@@ -210,8 +215,6 @@
       <input id="maxShareSlider" type="range" min="0" max="100" value="100" step="1" />
       <span id="maxShareValue" class="slider-value">100&nbsp;%</span>
     </div>
-
-    <button id="top10Btn">Visa topp 10 kommuner</button>
 
     <p style="margin-top:6px; font-size:12px;">
       Klicka på en kommun för att se mer information och dela en länk till just den kommunen.
@@ -457,9 +460,7 @@
                     title: "Elbilskartan – " + name,
                     text: "Andel elbilar i " + name + ": " + share + " %",
                     url: shareUrl,
-                  }).catch(() => {
-                    // om användaren avbryter gör vi inget
-                  });
+                  }).catch(() => {});
                 } else if (
                   navigator.clipboard &&
                   navigator.clipboard.writeText
@@ -537,7 +538,7 @@
       return false;
     }
 
-    // ------- Sökning + autocomplete (endast kommuner) -------
+    // ------- Sökning + autocomplete -------
     function updateSuggestions(query) {
       const listEl = document.getElementById("searchSuggestions");
       if (!query) {
@@ -585,7 +586,6 @@
       }
     }
 
-    // Stäng suggestions om man klickar utanför
     document.addEventListener("click", (e) => {
       const wrapper = document.querySelector(".suggestions");
       const listEl = document.getElementById("searchSuggestions");
@@ -597,7 +597,6 @@
 
     // ------- Slider-filter -------
     function clampSlider() {
-      // säkerställ att min <= max
       if (minShare > maxShare) {
         const tmp = minShare;
         minShare = maxShare;
@@ -628,60 +627,8 @@
       renderLayer();
     }
 
-    // ------- Topp 10 kommuner -------
-    function showTop10() {
-      if (!allFeatures.length) {
-        alert("Data har inte laddats ännu.");
-        return;
-      }
-
-      const sorted = [...allFeatures]
-        .filter((f) => (f.properties.ev_share || 0) > 0)
-        .sort(
-          (a, b) =>
-            (b.properties.ev_share || 0) -
-            (a.properties.ev_share || 0)
-        )
-        .slice(0, 10);
-
-      if (!sorted.length) {
-        alert("Inga värden hittades.");
-        return;
-      }
-
-      let msg = "Topp 10 kommuner (andel elbilar):\n\n";
-      sorted.forEach((f, i) => {
-        msg +=
-          i + 1 +
-          ". " +
-          getKommunNamn(f.properties) +
-          " – " +
-          (f.properties.ev_share || 0).toFixed(1) +
-          " %\n";
-      });
-      alert(msg);
-
-      if (geoLayer) {
-        const layers = [];
-        const codesTop = sorted.map((f) => getKommunKod(f.properties));
-
-        geoLayer.eachLayer((layer) => {
-          const code = getKommunKod(layer.feature.properties);
-          if (codesTop.includes(code)) {
-            layers.push(layer);
-          }
-        });
-
-        if (layers.length) {
-          const group = L.featureGroup(layers);
-          map.fitBounds(group.getBounds());
-        }
-      }
-    }
-
     // ------- Kolada v2: tolka svar -------
     function getLatestValueFromKoladaResponse(data) {
-      // v2-data: { values: [ {kpi, municipality, period, values:[{count,gender,status,value}]} ] }
       if (!data || !Array.isArray(data.values)) return null;
 
       let best = null;
