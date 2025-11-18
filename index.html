@@ -13,7 +13,7 @@
     crossorigin=""
   />
 
-  <!-- OpenGraph för LinkedIn mm -->
+  <!-- OpenGraph för delning -->
   <meta property="og:title" content="Elbilskartan Sverige – interaktiv karta över andel elbilar per kommun" />
   <meta property="og:description" content="Interaktiv Leaflet-karta som visualiserar andelen elbilar per kommun (Kolada KPI N07945) baserat på öppna data." />
   <meta property="og:type" content="website" />
@@ -75,6 +75,9 @@
       background: #2563eb;
       color: #fff;
       border-color: #1d4ed8;
+    }
+    .control-panel button.primary:hover {
+      background: #1d4ed8;
     }
 
     .slider-row {
@@ -180,21 +183,19 @@
     }
 
     /* Flytta zoom-kontroller till nedre högra hörnet */
-    .leaflet-control-zoom {
-      position: absolute !important;
-      right: 10px !important;
-      bottom: 40px !important;
-      left: auto !important;
-      top: auto !important;
-      z-index: 500 !important;
+    .leaflet-top.leaflet-left {
+      top: auto;
+      bottom: 40px;
+      left: auto;
+      right: 10px;
     }
     @media (max-width: 768px) {
-      .leaflet-control-zoom {
-        bottom: 80px !important;
+      .leaflet-top.leaflet-left {
+        bottom: 80px;
       }
     }
 
-    /* Mobil-layout för panelen och källtexten */
+    /* Mobil-layout */
     @media (max-width: 768px) {
       .control-panel {
         top: 8px;
@@ -325,27 +326,28 @@
     }
 
     function getKommunKod(props) {
-      // I din GeoJSON ligger kommunkoden redan i id, t.ex. "0180"
-      return String(props.id);
+      return String(props.id); // t.ex. "0184" för Solna
     }
 
     // --------- Info-ruta ---------
     const info = L.control();
 
     info.onAdd = function () {
-      this._div = L.DomUtil.create("div", "info");
-      this.update();
-      return this._div;
+      const div = L.DomUtil.create("div", "info");
+      info._div = div;
+      info.update();
+      return div;
     };
 
     info.update = function (props) {
+      if (!info._div) return;
       if (!props) {
-        this._div.innerHTML = "<h4>Andel elbilar</h4>Håll musen över en kommun";
+        info._div.innerHTML = "<h4>Andel elbilar</h4>Håll musen över en kommun";
       } else {
         const name = getKommunNamn(props);
         const region = getRegionNamn(props);
         const share = (props.ev_share || 0).toFixed(1);
-        this._div.innerHTML =
+        info._div.innerHTML =
           "<h4>Andel elbilar</h4>" +
           name +
           (region ? ", " + region : "") +
@@ -678,7 +680,7 @@
     }
 
     async function fetchKoladaForMunicipality(code) {
-      const url = `${KOLADA_KPI_ID && KOLADA_BASE_URL}/data/kpi/${encodeURIComponent(
+      const url = `${KOLADA_BASE_URL}/data/kpi/${encodeURIComponent(
         KOLADA_KPI_ID
       )}/municipality/${encodeURIComponent(code)}`;
 
@@ -717,4 +719,62 @@
         const code = getKommunKod(props);
         const val = results[code];
         props.ev_share = typeof val === "number" ? val : 0;
-    
+      });
+
+      return geojson;
+    }
+
+    // --------- Init ---------
+    (async function init() {
+      try {
+        const geoResp = await fetch("kommuner.geojson");
+        if (!geoResp.ok) {
+          alert("Kunde inte läsa kommuner.geojson");
+          return;
+        }
+        const geojson = await geoResp.json();
+
+        const enriched = await injectKoladaDataIntoGeojson(geojson);
+        allFeatures = enriched.features || [];
+
+        kommunNames = [...new Set(
+          allFeatures
+            .map(f => getKommunNamn(f.properties))
+            .filter(Boolean)
+        )].sort((a, b) => a.localeCompare(b, "sv"));
+
+        updateSliderLabels();
+        renderLayer();
+      } catch (err) {
+        console.error("Fel vid inläsning/injektion:", err);
+        alert("Fel vid inläsning av data. Öppna utvecklarkonsolen (F12) för detaljer.");
+      }
+    })();
+
+    // --------- Eventlyssnare ---------
+    document
+      .getElementById("searchBtn")
+      .addEventListener("click", handleSearch);
+
+    document
+      .getElementById("searchInput")
+      .addEventListener("keydown", function (e) {
+        if (e.key === "Enter") handleSearch();
+      });
+
+    document
+      .getElementById("searchInput")
+      .addEventListener("input", function (e) {
+        updateSuggestions(e.target.value);
+      });
+
+    document
+      .getElementById("minShareSlider")
+      .addEventListener("input", handleSliderChange);
+
+    document
+      .getElementById("maxShareSlider")
+      .addEventListener("input", handleSliderChange);
+  </script>
+</body>
+</html>
