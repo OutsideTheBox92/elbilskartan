@@ -725,4 +725,56 @@
     }
 
     // --------- Init ---------
-    (async
+    (async function init() {
+      try {
+        const geoResp = await fetch("kommuner.geojson");
+        if (!geoResp.ok) {
+          alert("Kunde inte läsa kommuner.geojson");
+          return;
+        }
+        const geojson = await geoResp.json();
+
+        const enriched = await injectKoladaDataIntoGeojson(geojson);
+        allFeatures = enriched.features || [];
+
+        kommunNames = [...new Set(
+          allFeatures
+            .map(f => getKommunNamn(f.properties))
+            .filter(Boolean)
+        )].sort((a, b) => a.localeCompare(b, "sv"));
+
+        updateSliderLabels();
+        renderLayer();
+      } catch (err) {
+        console.error("Fel vid inläsning/injektion:", err);
+        alert("Fel vid inläsning av data. Öppna utvecklarkonsolen (F12) för detaljer.");
+      }
+    })();
+
+    // --------- Eventlyssnare ---------
+    document
+      .getElementById("searchBtn")
+      .addEventListener("click", handleSearch);
+
+    document
+      .getElementById("searchInput")
+      .addEventListener("keydown", function (e) {
+        if (e.key === "Enter") handleSearch();
+      });
+
+    document
+      .getElementById("searchInput")
+      .addEventListener("input", function (e) {
+        updateSuggestions(e.target.value);
+      });
+
+    document
+      .getElementById("minShareSlider")
+      .addEventListener("input", handleSliderChange);
+
+    document
+      .getElementById("maxShareSlider")
+      .addEventListener("input", handleSliderChange);
+  </script>
+</body>
+</html>
