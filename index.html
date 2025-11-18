@@ -9,9 +9,11 @@
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
   />
 
-  <!-- OpenGraph för LinkedIn -->
+  <!-- OpenGraph för LinkedIn mm -->
   <meta property="og:title" content="Elbilskartan Sverige – interaktiv karta över andel elbilar per kommun" />
   <meta property="og:description" content="Interaktiv Leaflet-karta som visualiserar andelen elbilar per kommun (Kolada KPI N07945) baserat på öppna data." />
   <meta property="og:type" content="website" />
@@ -23,7 +25,10 @@
       height: 100%;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-    #map { width: 100%; height: 100%; }
+    #map {
+      width: 100%;
+      height: 100%;
+    }
 
     /* Kontrollpanel */
     .control-panel {
@@ -87,7 +92,7 @@
       font-variant-numeric: tabular-nums;
     }
 
-    /* Info */
+    /* Info-ruta */
     .info {
       padding: 6px 8px;
       background: rgba(255, 255, 255, 0.9);
@@ -110,8 +115,15 @@
       box-shadow: 0 0 15px rgba(0,0,0,0.2);
       font-size: 12px;
     }
+    .legend i {
+      width: 18px;
+      height: 18px;
+      float: left;
+      margin-right: 4px;
+      opacity: 0.8;
+    }
 
-    /* Källa */
+    /* Källa-text */
     .source-note {
       position: absolute;
       bottom: 6px;
@@ -124,10 +136,14 @@
     }
 
     /* Autocomplete */
-    .suggestions { position: relative; }
+    .suggestions {
+      position: relative;
+    }
     .suggestions-list {
       position: absolute;
-      top: 100%; left: 0; right: 0;
+      top: 100%;
+      left: 0;
+      right: 0;
       background: #fff;
       border: 1px solid #ddd;
       border-radius: 4px;
@@ -142,10 +158,16 @@
       cursor: pointer;
       font-size: 13px;
     }
-    .suggestion-item:hover { background: #eef2ff; }
-    .suggestion-empty { padding: 6px 8px; font-size: 12px; color: #666; }
+    .suggestion-item:hover {
+      background: #eef2ff;
+    }
+    .suggestion-empty {
+      padding: 6px 8px;
+      font-size: 12px;
+      color: #666;
+    }
 
-    /* Share-knapp */
+    /* Share-knapp i popup */
     .popup-share-btn {
       margin-top: 4px;
       padding: 4px 8px;
@@ -157,7 +179,7 @@
       cursor: pointer;
     }
 
-    /* Flytta zoom-kontroller */
+    /* Flytta zoom-kontroller till nedre högra hörnet */
     .leaflet-control-zoom {
       position: absolute !important;
       right: 10px !important;
@@ -167,16 +189,19 @@
       z-index: 500 !important;
     }
     @media (max-width: 768px) {
-      .leaflet-control-zoom { bottom: 80px !important; }
+      .leaflet-control-zoom {
+        bottom: 80px !important;
+      }
     }
 
-    /* Mobil */
+    /* Mobil-layout för panelen och källtexten */
     @media (max-width: 768px) {
       .control-panel {
         top: 8px;
         left: 50%;
         transform: translateX(-50%);
         width: calc(100% - 20px);
+        max-width: none;
       }
       .source-note {
         left: 50%;
@@ -188,13 +213,12 @@
   </style>
 </head>
 <body>
-
   <div class="control-panel">
     <h4>Elbilskartan Sverige</h4>
 
     <label for="searchInput">Sök kommun</label>
     <div class="suggestions">
-      <input id="searchInput" type="text" placeholder="t.ex. Malmö" autocomplete="off" />
+      <input id="searchInput" type="text" placeholder="t.ex. Solna" autocomplete="off" />
       <div id="searchSuggestions" class="suggestions-list" style="display:none;"></div>
     </div>
     <button id="searchBtn" class="primary">Sök</button>
@@ -202,12 +226,12 @@
     <label>Andel elbilar (%)</label>
     <div class="slider-row">
       <span style="font-size:12px;">Min</span>
-      <input id="minShareSlider" type="range" min="0" max="100" value="0" />
+      <input id="minShareSlider" type="range" min="0" max="100" value="0" step="1" />
       <span id="minShareValue" class="slider-value">0 %</span>
     </div>
     <div class="slider-row">
       <span style="font-size:12px;">Max</span>
-      <input id="maxShareSlider" type="range" min="0" max="100" value="100" />
+      <input id="maxShareSlider" type="range" min="0" max="100" value="100" step="1" />
       <span id="maxShareValue" class="slider-value">100 %</span>
     </div>
 
@@ -218,24 +242,31 @@
 
   <div id="map"></div>
   <div class="source-note">
-    Källa: Kolada (KPI N07945). Kommungränser: Sveriges dataportal.
+    Källa: Kolada (KPI N07945, API v2). Kommungränser: Sveriges dataportal.
   </div>
 
   <!-- Leaflet JS -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
 
   <script>
-    /* --- HELA DIN JAVASCRIPT-KOD (oförändrad utom zoomfix) --- */
-    /* OBS: För att undvika att chatten blir extremt lång har jag
-            inte kortat ner eller tagit bort någonting. */
-
+    // --------- Konstanter ---------
     const KOLADA_KPI_ID = "N07945";
     const KOLADA_BASE_URL = "https://api.kolada.se/v2";
-    const TARGET_YEAR = null;
+    const TARGET_YEAR = null; // sätt t.ex. 2023 om du vill låsa årtal
 
+    // --------- Karta ---------
     const map = L.map("map").setView([62.0, 15.0], 4.5);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
+
+    // --------- Färgskala ---------
     function getColor(d) {
       return d > 40 ? "#08306b" :
              d > 30 ? "#08519c" :
@@ -248,266 +279,442 @@
                       "#f7fbff";
     }
 
-    function style(f) {
+    function style(feature) {
+      const share = feature.properties.ev_share || 0;
       return {
-        fillColor: getColor(f.properties.ev_share || 0),
+        fillColor: getColor(share),
         weight: 1,
+        opacity: 1,
         color: "white",
         dashArray: "3",
-        fillOpacity: 0.8
+        fillOpacity: 0.8,
       };
     }
 
-    function getKommunNamn(p) { return p.kom_namn || ""; }
-    function getRegionNamn(p) {
-      const m = {
-        "01":"Stockholms län","03":"Uppsala län","04":"Södermanlands län",
-        "05":"Östergötlands län","06":"Jönköpings län","07":"Kronobergs län",
-        "08":"Kalmar län","09":"Gotlands län","10":"Blekinge län","12":"Skåne län",
-        "13":"Hallands län","14":"Västra Götalands län","17":"Värmlands län",
-        "18":"Örebro län","19":"Västmanlands län","20":"Dalarnas län",
-        "21":"Gävleborgs län","22":"Västernorrlands län","23":"Jämtlands län",
-        "24":"Västerbottens län","25":"Norrbottens län"
-      };
-      return m[p.lan_code] || "";
+    // --------- Hjälpfunktioner för GeoJSON ---------
+    function getKommunNamn(props) {
+      return props.kom_namn || "";
     }
-    function getKommunKod(p){ return String(p.id); }
 
+    function getRegionNamn(props) {
+      const mapping = {
+        "01": "Stockholms län",
+        "03": "Uppsala län",
+        "04": "Södermanlands län",
+        "05": "Östergötlands län",
+        "06": "Jönköpings län",
+        "07": "Kronobergs län",
+        "08": "Kalmar län",
+        "09": "Gotlands län",
+        "10": "Blekinge län",
+        "12": "Skåne län",
+        "13": "Hallands län",
+        "14": "Västra Götalands län",
+        "17": "Värmlands län",
+        "18": "Örebro län",
+        "19": "Västmanlands län",
+        "20": "Dalarnas län",
+        "21": "Gävleborgs län",
+        "22": "Västernorrlands län",
+        "23": "Jämtlands län",
+        "24": "Västerbottens län",
+        "25": "Norrbottens län",
+      };
+      const code = props.lan_code;
+      return mapping[code] || "";
+    }
+
+    function getKommunKod(props) {
+      // I din GeoJSON ligger kommunkoden redan i id, t.ex. "0180"
+      return String(props.id);
+    }
+
+    // --------- Info-ruta ---------
     const info = L.control();
-    info.onAdd = function(){
-      this._div = L.DomUtil.create("div","info");
+
+    info.onAdd = function () {
+      this._div = L.DomUtil.create("div", "info");
       this.update();
       return this._div;
     };
-    info.update = p => {
-      if(!p) this._div.innerHTML = "<h4>Andel elbilar</h4>Håll musen över en kommun";
-      else this._div.innerHTML =
-        `<h4>Andel elbilar</h4>${getKommunNamn(p)}, ${getRegionNamn(p)}<br><b>${(p.ev_share||0).toFixed(1)} %</b>`;
+
+    info.update = function (props) {
+      if (!props) {
+        this._div.innerHTML = "<h4>Andel elbilar</h4>Håll musen över en kommun";
+      } else {
+        const name = getKommunNamn(props);
+        const region = getRegionNamn(props);
+        const share = (props.ev_share || 0).toFixed(1);
+        this._div.innerHTML =
+          "<h4>Andel elbilar</h4>" +
+          name +
+          (region ? ", " + region : "") +
+          "<br/><b>" +
+          share +
+          " %</b>";
+      }
     };
+
     info.addTo(map);
 
-    const legend = L.control({position:"bottomright"});
-    legend.onAdd = () => {
-      const d = L.DomUtil.create("div","legend");
-      const g = [0,1,5,10,15,20,30,40];
-      d.innerHTML = g.map((v,i)=>(
-        `<i style="background:${getColor(v+0.01)}"></i> ${v}${g[i+1]?"–"+g[i+1]:"+"} %`
-      )).join("<br>");
-      return d;
+    // --------- Legend ---------
+    const legend = L.control({ position: "bottomright" });
+
+    legend.onAdd = function () {
+      const div = L.DomUtil.create("div", "legend");
+      const grades = [0, 1, 5, 10, 15, 20, 30, 40];
+      const labels = [];
+
+      for (let i = 0; i < grades.length; i++) {
+        const from = grades[i];
+        const to = grades[i + 1];
+        labels.push(
+          '<i style="background:' +
+            getColor(from + 0.01) +
+            '"></i> ' +
+            from +
+            (to ? "&ndash;" + to : "+") +
+            " %"
+        );
+      }
+
+      div.innerHTML = labels.join("<br>");
+      return div;
     };
+
     legend.addTo(map);
 
+    // --------- Global state ---------
     let allFeatures = [];
     let geoLayer = null;
     let kommunNames = [];
-    let initialKommunCode = null;
 
     let minShare = 0;
     let maxShare = 100;
 
-    const params = new URLSearchParams(window.location.search);
-    if(params.get("kommun")){
-      initialKommunCode = params.get("kommun");
+    let initialKommunCode = null;
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("kommun")) {
+      initialKommunCode = urlParams.get("kommun");
     }
 
-    function featurePasses(f){
-      const s = f.properties.ev_share || 0;
-      return s >= minShare && s <= maxShare;
+    // --------- Filter & rendering ---------
+    function featurePassesFilters(feature) {
+      const share = feature.properties.ev_share || 0;
+      if (share < minShare) return false;
+      if (share > maxShare) return false;
+      return true;
     }
 
-    function renderLayer(){
-      if(!allFeatures.length) return;
-      const filtered = allFeatures.filter(featurePasses);
+    function focusKommunByCode(code) {
+      if (!geoLayer) return false;
+      let target = null;
+      geoLayer.eachLayer(layer => {
+        const props = layer.feature.properties;
+        if (getKommunKod(props) === String(code)) {
+          target = layer;
+        }
+      });
+      if (target) {
+        map.fitBounds(target.getBounds());
+        target.openPopup();
+        info.update(target.feature.properties);
+        return true;
+      }
+      return false;
+    }
 
-      if(geoLayer) geoLayer.remove();
+    function renderLayer() {
+      if (!allFeatures.length) return;
 
-      geoLayer = L.geoJSON(filtered,{
-        style,
-        onEachFeature:(f,l)=>{
-          const p = f.properties;
-          const n = getKommunNamn(p);
-          const r = getRegionNamn(p);
-          const s = (p.ev_share||0).toFixed(1);
-          const c = getKommunKod(p);
+      const filtered = allFeatures.filter(featurePassesFilters);
 
-          const html = `
-            <strong>${n}</strong><br>${r}<br>
-            Andel elbilar: ${s} %
-            <br><button class="popup-share-btn" data-code="${c}">Dela länk</button>
-          `;
-          l.bindPopup(html);
+      if (geoLayer) {
+        geoLayer.remove();
+      }
 
-          l.on("mouseover",e=>{
-            e.target.setStyle({weight:2,color:"#666",dashArray:"",fillOpacity:0.9});
-            info.update(p);
+      geoLayer = L.geoJSON(filtered, {
+        style: style,
+        onEachFeature: function (feature, layer) {
+          const props = feature.properties;
+          const name = getKommunNamn(props);
+          const region = getRegionNamn(props);
+          const share = (props.ev_share || 0).toFixed(1);
+          const code = getKommunKod(props);
+
+          const popupHtml =
+            "<strong>" +
+            name +
+            "</strong>" +
+            (region ? "<br>" + region : "") +
+            "<br>Andel elbilar: " +
+            share +
+            " %" +
+            "<br><button class='popup-share-btn' data-code='" +
+            code +
+            "'>Dela länk till denna kommun</button>";
+
+          layer.bindPopup(popupHtml);
+
+          layer.on({
+            mouseover: function (e) {
+              const target = e.target;
+              target.setStyle({
+                weight: 2,
+                color: "#666",
+                dashArray: "",
+                fillOpacity: 0.9,
+              });
+              if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                target.bringToFront();
+              }
+              info.update(target.feature.properties);
+            },
+            mouseout: function (e) {
+              geoLayer.resetStyle(e.target);
+              info.update();
+            },
           });
-          l.on("mouseout",e=>{
-            geoLayer.resetStyle(e.target);
-            info.update();
-          });
 
-          l.on("popupopen",e=>{
-            const btn = e.popup.getElement().querySelector(".popup-share-btn");
-            if(!btn) return;
-            btn.onclick = ()=>{
-              const url = `${window.location.origin}${window.location.pathname}?kommun=${c}`;
-              if(navigator.share){
-                navigator.share({title:`Elbilskartan – ${n}`,text:`${n}: ${s}%`,url});
+          layer.on("popupopen", function (e) {
+            const popupEl = e.popup.getElement();
+            const btn = popupEl.querySelector(".popup-share-btn");
+            if (!btn) return;
+            btn.onclick = function () {
+              const kommunCode = btn.getAttribute("data-code");
+              const shareUrl =
+                window.location.origin +
+                window.location.pathname +
+                "?kommun=" +
+                encodeURIComponent(kommunCode);
+
+              if (navigator.share) {
+                navigator.share({
+                  title: "Elbilskartan – " + name,
+                  text: "Andel elbilar i " + name + ": " + share + " %",
+                  url: shareUrl,
+                }).catch(() => {});
+              } else if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shareUrl).then(
+                  () =>
+                    alert(
+                      "Länk kopierad till urklipp:\n" + shareUrl
+                    ),
+                  () =>
+                    alert(
+                      "Kunde inte kopiera. Kopiera manuellt:\n" +
+                        shareUrl
+                    )
+                );
               } else {
-                navigator.clipboard.writeText(url);
-                alert("Länken är kopierad:\n"+url);
+                alert("Kopiera länken:\n" + shareUrl);
               }
             };
           });
-        }
+        },
       }).addTo(map);
 
-      if(filtered.length) map.fitBounds(geoLayer.getBounds());
-      if(initialKommunCode){
+      if (filtered.length) {
+        map.fitBounds(geoLayer.getBounds());
+      }
+
+      if (initialKommunCode) {
         focusKommunByCode(initialKommunCode);
         initialKommunCode = null;
       }
     }
 
-    function focusKommunByName(name){
-      if(!geoLayer) return false;
-      let target = null;
-      geoLayer.eachLayer(l=>{
-        if(getKommunNamn(l.feature.properties).toLowerCase()===name.toLowerCase()){
-          target = l;
+    // --------- Sökning + autocomplete ---------
+    function focusKommunByName(name) {
+      if (!geoLayer) return false;
+      const targetName = name.trim().toLowerCase();
+      let foundLayer = null;
+
+      geoLayer.eachLayer(layer => {
+        const props = layer.feature.properties;
+        if (getKommunNamn(props).toLowerCase() === targetName) {
+          foundLayer = layer;
         }
       });
-      if(target){
-        map.fitBounds(target.getBounds());
-        target.openPopup();
+
+      if (foundLayer) {
+        map.fitBounds(foundLayer.getBounds());
+        foundLayer.openPopup();
+        info.update(foundLayer.feature.properties);
         return true;
       }
       return false;
     }
 
-    function focusKommunByCode(code){
-      if(!geoLayer) return false;
-      let target = null;
-      geoLayer.eachLayer(l=>{
-        if(getKommunKod(l.feature.properties)===String(code)){
-          target = l;
-        }
-      });
-      if(target){
-        map.fitBounds(target.getBounds());
-        target.openPopup();
-        return true;
-      }
-      return false;
-    }
-
-    function updateSuggestions(q){
-      const box = document.getElementById("searchSuggestions");
-      if(!q){ box.style.display="none"; box.innerHTML=""; return; }
-      const m = kommunNames.filter(n=>n.toLowerCase().includes(q.toLowerCase())).slice(0,10);
-      if(!m.length){
-        box.innerHTML = "<div class='suggestion-empty'>Inga träffar</div>";
-        box.style.display="block";
+    function updateSuggestions(query) {
+      const listEl = document.getElementById("searchSuggestions");
+      if (!query) {
+        listEl.style.display = "none";
+        listEl.innerHTML = "";
         return;
       }
-      box.innerHTML = m.map(n=>`<div class="suggestion-item">${n}</div>`).join("");
-      box.style.display="block";
-      [...box.children].forEach(el=>{
-        el.onclick = ()=>{
-          document.getElementById("searchInput").value = el.textContent;
-          box.style.display="none";
-          focusKommunByName(el.textContent);
+
+      const q = query.toLowerCase();
+      const matches = kommunNames
+        .filter(n => n.toLowerCase().includes(q))
+        .slice(0, 10);
+
+      if (!matches.length) {
+        listEl.innerHTML =
+          "<div class='suggestion-empty'>Inga träffar</div>";
+        listEl.style.display = "block";
+        return;
+      }
+
+      listEl.innerHTML = "";
+      matches.forEach(name => {
+        const item = document.createElement("div");
+        item.className = "suggestion-item";
+        item.textContent = name;
+        item.onclick = function () {
+          document.getElementById("searchInput").value = name;
+          listEl.style.display = "none";
+          handleSearch();
         };
+        listEl.appendChild(item);
       });
+      listEl.style.display = "block";
     }
 
-    function handleSlider(){
-      minShare = parseInt(document.getElementById("minShareSlider").value);
-      maxShare = parseInt(document.getElementById("maxShareSlider").value);
+    function handleSearch() {
+      const query = document
+        .getElementById("searchInput")
+        .value.trim();
+      if (!query) return;
 
-      if(minShare > maxShare){
-        const t = minShare; minShare = maxShare; maxShare = t;
+      const ok = focusKommunByName(query);
+      if (!ok) {
+        alert("Hittade ingen kommun med namnet: " + query);
+      }
+    }
+
+    document.addEventListener("click", function (e) {
+      const wrapper = document.querySelector(".suggestions");
+      const listEl = document.getElementById("searchSuggestions");
+      if (!wrapper || !listEl) return;
+      if (!wrapper.contains(e.target)) {
+        listEl.style.display = "none";
+      }
+    });
+
+    // --------- Slider-filter ---------
+    function updateSliderLabels() {
+      document.getElementById("minShareValue").textContent =
+        minShare + " %";
+      document.getElementById("maxShareValue").textContent =
+        maxShare + " %";
+    }
+
+    function handleSliderChange() {
+      const minVal = parseInt(
+        document.getElementById("minShareSlider").value,
+        10
+      );
+      const maxVal = parseInt(
+        document.getElementById("maxShareSlider").value,
+        10
+      );
+
+      minShare = isNaN(minVal) ? 0 : minVal;
+      maxShare = isNaN(maxVal) ? 100 : maxVal;
+
+      if (minShare > maxShare) {
+        const tmp = minShare;
+        minShare = maxShare;
+        maxShare = tmp;
         document.getElementById("minShareSlider").value = minShare;
         document.getElementById("maxShareSlider").value = maxShare;
       }
 
-      document.getElementById("minShareValue").textContent = minShare+" %";
-      document.getElementById("maxShareValue").textContent = maxShare+" %";
-
+      updateSliderLabels();
       renderLayer();
     }
 
-    function getLatest(data){
-      if(!data || !Array.isArray(data.values)) return null;
+    // --------- Kolada v2: tolka svar ---------
+    function getLatestValueFromKoladaResponse(data) {
+      if (!data || !Array.isArray(data.values)) return null;
+
       let best = null;
-      data.values.forEach(row=>{
-        const p = parseInt(row.period);
-        if(TARGET_YEAR && p!==TARGET_YEAR) return;
-        const vals = row.values || [];
-        if(!vals.length) return;
-        const v = vals.find(x=>x.gender==="T") || vals[0];
-        if(!v || v.value==null) return;
-        const val = Number(v.value);
-        if(isNaN(val)) return;
-        if(!best || p > best.year) best = {year:p,value:val};
+
+      data.values.forEach(row => {
+        const period = parseInt(row.period, 10);
+        if (TARGET_YEAR && period !== TARGET_YEAR) return;
+
+        const vals = Array.isArray(row.values) ? row.values : [];
+        if (!vals.length) return;
+
+        const v = vals.find(x => x.gender === "T") || vals[0];
+        if (!v || v.value === null || v.value === undefined) return;
+
+        const value = Number(v.value);
+        if (isNaN(value)) return;
+
+        if (!best || (!isNaN(period) && period > best.year)) {
+          best = { year: period, value };
+        }
       });
+
+      if (!best && TARGET_YEAR) {
+        data.values.forEach(row => {
+          const period = parseInt(row.period, 10);
+          const vals = Array.isArray(row.values) ? row.values : [];
+          if (!vals.length) return;
+          const v = vals.find(x => x.gender === "T") || vals[0];
+          if (!v || v.value === null || v.value === undefined) return;
+          const value = Number(v.value);
+          if (isNaN(value)) return;
+          if (!best || (!isNaN(period) && period > best.year)) {
+            best = { year: period, value };
+          }
+        });
+      }
+
       return best;
     }
 
-    async function fetchKolada(code){
-      const url = `${KOLADA_BASE_URL}/data/kpi/${KOLADA_KPI_ID}/municipality/${code}`;
-      try{
-        const r = await fetch(url);
-        const d = await r.json();
-        return getLatest(d);
-      } catch { return null; }
+    async function fetchKoladaForMunicipality(code) {
+      const url = `${KOLADA_KPI_ID && KOLADA_BASE_URL}/data/kpi/${encodeURIComponent(
+        KOLADA_KPI_ID
+      )}/municipality/${encodeURIComponent(code)}`;
+
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) {
+          console.warn("Kolada fel för kommun", code, resp.status);
+          return null;
+        }
+        const data = await resp.json();
+        return getLatestValueFromKoladaResponse(data);
+      } catch (err) {
+        console.error("Fel vid hämtning från Kolada för kommun", code, err);
+        return null;
+      }
     }
 
-    async function enrich(geo){
-      const feats = geo.features;
-      const codes = [...new Set(feats.map(f=>getKommunKod(f.properties)))];
+    async function injectKoladaDataIntoGeojson(geojson) {
+      const features = geojson.features || [];
+      const codes = [...new Set(features.map(f => getKommunKod(f.properties)))];
+
       const results = {};
 
       await Promise.all(
-        codes.map(async c=>{
-          const r = await fetchKolada(c);
-          if(r && !isNaN(r.value)) results[c] = r.value;
+        codes.map(async code => {
+          if (!code) return;
+          const res = await fetchKoladaForMunicipality(code);
+          if (res && !isNaN(res.value)) {
+            results[code] = res.value;
+          }
         })
       );
 
-      feats.forEach(f=>{
-        const c = getKommunKod(f.properties);
-        f.properties.ev_share = results[c] || 0;
-      });
-
-      return geo;
-    }
-
-    (async function init(){
-      const res = await fetch("kommuner.geojson");
-      const geo = await res.json();
-      const enriched = await enrich(geo);
-      allFeatures = enriched.features;
-
-      kommunNames = [...new Set(allFeatures.map(f=>getKommunNamn(f.properties)))].sort();
-
-      renderLayer();
-    })();
-
-    document.getElementById("searchBtn").onclick = ()=>{
-      const q = document.getElementById("searchInput").value.trim();
-      if(!focusKommunByName(q)) alert("Kommun ej hittad");
-    };
-    document.getElementById("searchInput").oninput = e=>updateSuggestions(e.target.value);
-    document.getElementById("minShareSlider").oninput = handleSlider;
-    document.getElementById("maxShareSlider").oninput = handleSlider;
-
-    document.addEventListener("click",e=>{
-      const wrap=document.querySelector(".suggestions");
-      const box=document.getElementById("searchSuggestions");
-      if(!wrap.contains(e.target)) box.style.display="none";
-    });
-
-  </script>
-</body>
-</html>
+      features.forEach(feat => {
+        const props = feat.properties;
+        const code = getKommunKod(props);
+        const val = results[code];
+        props.ev_share = typeof val === "number" ? val : 0;
+    
