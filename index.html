@@ -27,39 +27,63 @@
       top: 10px;
       left: 10px;
       z-index: 1000;
-      background: rgba(255, 255, 255, 0.95);
+      background: rgba(255, 255, 255, 0.97);
       padding: 10px;
-      border-radius: 6px;
+      border-radius: 8px;
       box-shadow: 0 0 10px rgba(0,0,0,0.2);
-      max-width: 260px;
+      max-width: 280px;
       font-size: 13px;
     }
     .control-panel h4 {
       margin: 0 0 6px;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 600;
     }
     .control-panel label {
       font-weight: 500;
       display: block;
-      margin-top: 6px;
+      margin-top: 8px;
     }
-    .control-panel input[type="text"],
-    .control-panel input[type="number"] {
+    .control-panel input[type="text"] {
       width: 100%;
       box-sizing: border-box;
-      padding: 4px 6px;
+      padding: 6px 8px;
       margin-top: 2px;
       font-size: 13px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
     }
     .control-panel button {
       margin-top: 8px;
-      padding: 5px 10px;
+      padding: 6px 10px;
       font-size: 13px;
       border-radius: 4px;
       border: 1px solid #ccc;
       cursor: pointer;
       background: #f4f4f4;
+    }
+    .control-panel button.primary {
+      background: #2563eb;
+      color: #fff;
+      border-color: #1d4ed8;
+    }
+    .control-panel button.primary:hover {
+      background: #1d4ed8;
+    }
+
+    .slider-row {
+      margin-top: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .slider-row input[type="range"] {
+      flex: 1;
+    }
+    .slider-value {
+      min-width: 42px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
     }
 
     .info {
@@ -100,6 +124,67 @@
       border-radius: 4px;
       font-size: 11px;
     }
+
+    /* Autocomplete */
+    .suggestions {
+      position: relative;
+    }
+    .suggestions-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      margin-top: 2px;
+      max-height: 220px;
+      overflow-y: auto;
+      z-index: 1500;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .suggestion-item {
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .suggestion-item:hover {
+      background: #eef2ff;
+    }
+    .suggestion-empty {
+      padding: 6px 8px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    /* Popup share button */
+    .popup-share-btn {
+      margin-top: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 4px;
+      border: 1px solid #2563eb;
+      background: #2563eb;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    /* Responsiv design */
+    @media (max-width: 768px) {
+      .control-panel {
+        top: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: calc(100% - 20px);
+        max-width: none;
+      }
+      .source-note {
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 8px;
+        text-align: center;
+      }
+    }
   </style>
 </head>
 <body>
@@ -107,19 +192,23 @@
   <div class="control-panel">
     <h4>Elbilskartan Sverige</h4>
 
-    <label for="searchInput">Sök kommun eller region</label>
-    <input id="searchInput" type="text" placeholder="t.ex. Tyresö eller Skåne län" />
-    <button id="searchBtn">Sök</button>
+    <label for="searchInput">Sök kommun</label>
+    <div class="suggestions">
+      <input id="searchInput" type="text" placeholder="t.ex. Tyresö" autocomplete="off" />
+      <div id="searchSuggestions" class="suggestions-list" style="display:none;"></div>
+    </div>
+    <button id="searchBtn" class="primary">Sök</button>
 
-    <label for="minShare">Min andel elbilar (%)</label>
-    <input id="minShare" type="number" value="0" step="0.1" min="0" max="100" />
+    <label for="minShareSlider">Min andel elbilar (%)</label>
+    <div class="slider-row">
+      <input id="minShareSlider" type="range" min="0" max="100" value="0" step="1" />
+      <span id="minShareValue" class="slider-value">0&nbsp;%</span>
+    </div>
 
-    <label for="maxShare">Max andel elbilar (%)</label>
-    <input id="maxShare" type="number" value="100" step="0.1" min="0" max="100" />
+    <button id="top10Btn">Visa topp 10 kommuner</button>
 
-    <button id="applyFilterBtn">Använd filter</button>
-    <p style="margin-top:6px;">
-      Dela kartan genom att kopiera adressraden – filtren sparas i länken.
+    <p style="margin-top:6px; font-size:12px;">
+      Klicka på en kommun för att se mer information och dela en länk till just den kommunen.
     </p>
   </div>
 
@@ -267,59 +356,25 @@
 
     legend.addTo(map);
 
-    // ------- Filtertillstånd -------
+    // ------- Global state -------
     let allFeatures = [];
     let geoLayer = null;
-
-    let currentRegion = null;
-    let minShare = 0;
-    let maxShare = 100;
+    let minShare = 0;              // styrs av slider
+    let kommunNames = [];          // för autocomplete
+    let initialKommunCode = null;  // för ?kommun=xxxx
 
     function loadStateFromUrl() {
       const params = new URLSearchParams(window.location.search);
-      const regionFromUrl = params.get("region");
-      const minFromUrl = parseFloat(params.get("min"));
-      const maxFromUrl = parseFloat(params.get("max"));
-
-      if (regionFromUrl) {
-        currentRegion = regionFromUrl;
-        document.getElementById("searchInput").value = regionFromUrl;
-      }
-      if (!isNaN(minFromUrl)) {
-        minShare = minFromUrl;
-        document.getElementById("minShare").value = minFromUrl;
-      }
-      if (!isNaN(maxFromUrl)) {
-        maxShare = maxFromUrl;
-        document.getElementById("maxShare").value = maxFromUrl;
+      const kommunFromUrl = params.get("kommun");
+      if (kommunFromUrl) {
+        initialKommunCode = kommunFromUrl;
       }
     }
 
-    function updateUrl() {
-      const params = new URLSearchParams();
-      if (currentRegion) params.set("region", currentRegion);
-      if (minShare !== 0) params.set("min", minShare);
-      if (maxShare !== 100) params.set("max", maxShare);
-      const newUrl =
-        window.location.pathname +
-        (params.toString() ? "?" + params.toString() : "");
-      history.replaceState(null, "", newUrl);
-    }
-
+    // ------- Filter & rendering -------
     function featurePassesFilters(feature) {
-      const props = feature.properties;
-      const regionName = getRegionNamn(props);
-      const share = props.ev_share || 0;
-
-      if (
-        currentRegion &&
-        regionName.toLowerCase() !== currentRegion.toLowerCase()
-      ) {
-        return false;
-      }
-      if (share < minShare || share > maxShare) {
-        return false;
-      }
+      const share = feature.properties.ev_share || 0;
+      if (share < minShare) return false;
       return true;
     }
 
@@ -339,6 +394,8 @@
           const name = getKommunNamn(props);
           const region = getRegionNamn(props);
           const share = (props.ev_share ?? 0).toFixed(1);
+          const code = getKommunKod(props);
+
           const popupHtml =
             "<strong>" +
             name +
@@ -346,7 +403,10 @@
             (region ? "<br>" + region : "") +
             "<br>Andel elbilar: " +
             share +
-            " %";
+            " %" +
+            "<br><button class='popup-share-btn' data-code='" +
+            code +
+            "'>Dela länk till denna kommun</button>";
 
           layer.bindPopup(popupHtml);
 
@@ -368,9 +428,31 @@
               geoLayer.resetStyle(e.target);
               info.update();
             },
-            click: function (e) {
-              e.target.openPopup();
-            },
+          });
+
+          // Hantera share-knapp när popupen öppnas
+          layer.on("popupopen", function (e) {
+            const popupEl = e.popup.getElement();
+            const btn = popupEl.querySelector(".popup-share-btn");
+            if (btn) {
+              btn.onclick = function () {
+                const kommunCode = btn.getAttribute("data-code");
+                const shareUrl =
+                  window.location.origin +
+                  window.location.pathname +
+                  "?kommun=" +
+                  encodeURIComponent(kommunCode);
+
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  navigator.clipboard.writeText(shareUrl).then(
+                    () => alert("Länk kopierad till urklipp:\n" + shareUrl),
+                    () => alert("Kunde inte kopiera. Kopiera manuellt:\n" + shareUrl)
+                  );
+                } else {
+                  alert("Kopiera länken:\n" + shareUrl);
+                }
+              };
+            }
           });
         },
       }).addTo(map);
@@ -378,86 +460,168 @@
       if (filtered.length) {
         map.fitBounds(geoLayer.getBounds());
       }
+
+      // Om vi har en kommun från URL, zooma till den
+      if (initialKommunCode) {
+        focusKommunByCode(initialKommunCode);
+        initialKommunCode = null; // bara första gången
+      }
     }
 
-    // ------- Sökning (kommun/region) -------
-    function handleSearch() {
-      const query = document
-        .getElementById("searchInput")
-        .value.trim()
-        .toLowerCase();
-      if (!query || !allFeatures.length) return;
+    // ------- Fokusera kommun -------
+    function focusKommunByName(name) {
+      if (!geoLayer) return;
+      const targetName = name.trim().toLowerCase();
+      let foundLayer = null;
 
-      // 1. Kommun
-      const kommunFeature = allFeatures.find((f) =>
-        getKommunNamn(f.properties).toLowerCase() === query
-      );
-
-      if (kommunFeature && geoLayer) {
-        const layer = geoLayer.getLayers().find(
-          (l) =>
-            getKommunNamn(l.feature.properties).toLowerCase() === query
-        );
-        if (layer) {
-          map.fitBounds(layer.getBounds());
-          layer.openPopup();
-          info.update(layer.feature.properties);
-          return;
+      geoLayer.eachLayer(function (layer) {
+        const props = layer.feature.properties;
+        if (getKommunNamn(props).toLowerCase() === targetName) {
+          foundLayer = layer;
         }
+      });
+
+      if (foundLayer) {
+        map.fitBounds(foundLayer.getBounds());
+        foundLayer.openPopup();
+        info.update(foundLayer.feature.properties);
+        return true;
       }
+      return false;
+    }
 
-      // 2. Region
-      const regionFeature = allFeatures.find((f) =>
-        getRegionNamn(f.properties).toLowerCase() === query
-      );
+    function focusKommunByCode(code) {
+      if (!geoLayer) return;
+      const targetCode = String(code);
+      let foundLayer = null;
 
-      if (regionFeature) {
-        currentRegion = getRegionNamn(regionFeature.properties);
-        updateUrl();
-        renderLayer();
+      geoLayer.eachLayer(function (layer) {
+        const props = layer.feature.properties;
+        if (getKommunKod(props) === targetCode) {
+          foundLayer = layer;
+        }
+      });
+
+      if (foundLayer) {
+        map.fitBounds(foundLayer.getBounds());
+        foundLayer.openPopup();
+        info.update(foundLayer.feature.properties);
+        return true;
+      }
+      return false;
+    }
+
+    // ------- Sökning + autocomplete (endast kommuner) -------
+    function updateSuggestions(query) {
+      const listEl = document.getElementById("searchSuggestions");
+      if (!query) {
+        listEl.style.display = "none";
+        listEl.innerHTML = "";
         return;
       }
 
-      alert("Hittade ingen kommun eller region med namnet: " + query);
-    }
+      const q = query.toLowerCase();
+      const matches = kommunNames
+        .filter((n) => n.toLowerCase().includes(q))
+        .slice(0, 10);
 
-    function handleFilterChange() {
-      const minInput = parseFloat(
-        document.getElementById("minShare").value
-      );
-      const maxInput = parseFloat(
-        document.getElementById("maxShare").value
-      );
-
-      minShare = isNaN(minInput) ? 0 : Math.max(0, Math.min(100, minInput));
-      maxShare = isNaN(maxInput)
-        ? 100
-        : Math.max(0, Math.min(100, maxInput));
-
-      if (minShare > maxShare) {
-        const tmp = minShare;
-        minShare = maxShare;
-        maxShare = tmp;
+      if (!matches.length) {
+        listEl.innerHTML = "<div class='suggestion-empty'>Inga träffar</div>";
+        listEl.style.display = "block";
+        return;
       }
 
-      updateUrl();
+      listEl.innerHTML = "";
+      matches.forEach((name) => {
+        const item = document.createElement("div");
+        item.className = "suggestion-item";
+        item.textContent = name;
+        item.onclick = function () {
+          document.getElementById("searchInput").value = name;
+          listEl.style.display = "none";
+          handleSearch();
+        };
+        listEl.appendChild(item);
+      });
+      listEl.style.display = "block";
+    }
+
+    function handleSearch() {
+      const query = document
+        .getElementById("searchInput")
+        .value.trim();
+      if (!query) return;
+
+      const ok = focusKommunByName(query);
+      if (!ok) {
+        alert("Hittade ingen kommun med namnet: " + query);
+      }
+    }
+
+    // ------- Slider-filter -------
+    function handleSliderChange() {
+      const slider = document.getElementById("minShareSlider");
+      const value = parseInt(slider.value, 10) || 0;
+      minShare = value;
+      document.getElementById("minShareValue").textContent =
+        value + " %";
       renderLayer();
     }
 
-    document
-      .getElementById("searchBtn")
-      .addEventListener("click", handleSearch);
-    document
-      .getElementById("searchInput")
-      .addEventListener("keydown", (e) => {
-        if (e.key === "Enter") handleSearch();
+    // ------- Topp 10 kommuner -------
+    function showTop10() {
+      if (!allFeatures.length) {
+        alert("Data har inte laddats ännu.");
+        return;
+      }
+
+      const sorted = [...allFeatures]
+        .filter((f) => (f.properties.ev_share || 0) > 0)
+        .sort(
+          (a, b) =>
+            (b.properties.ev_share || 0) -
+            (a.properties.ev_share || 0)
+        )
+        .slice(0, 10);
+
+      if (!sorted.length) {
+        alert("Inga värden hittades.");
+        return;
+      }
+
+      // Lista i alert
+      let msg = "Topp 10 kommuner (andel elbilar):\n\n";
+      sorted.forEach((f, i) => {
+        msg +=
+          (i + 1) +
+          ". " +
+          getKommunNamn(f.properties) +
+          " – " +
+          (f.properties.ev_share || 0).toFixed(1) +
+          " %\n";
       });
-    document
-      .getElementById("applyFilterBtn")
-      .addEventListener("click", handleFilterChange);
+      alert(msg);
+
+      // Zooma till dessa kommuner
+      if (geoLayer) {
+        const layers = [];
+        const codesTop = sorted.map((f) => getKommunKod(f.properties));
+
+        geoLayer.eachLayer(function (layer) {
+          const code = getKommunKod(layer.feature.properties);
+          if (codesTop.includes(code)) {
+            layers.push(layer);
+          }
+        });
+
+        if (layers.length) {
+          const group = L.featureGroup(layers);
+          map.fitBounds(group.getBounds());
+        }
+      }
+    }
 
     // ------- Kolada v2: tolka svar -------
-
     function getLatestValueFromKoladaResponse(data) {
       // v2-data: { values: [ {kpi, municipality, period, values:[{count,gender,status,value}]} ] }
       if (!data || !Array.isArray(data.values)) return null;
@@ -560,20 +724,4 @@
       try {
         const geoResp = await fetch("kommuner.geojson");
         if (!geoResp.ok) {
-          alert("Kunde inte läsa kommuner.geojson");
-          return;
-        }
-        const geojson = await geoResp.json();
-        const enriched = await injectKoladaDataIntoGeojson(geojson);
-        allFeatures = enriched.features;
-        renderLayer();
-      } catch (err) {
-        console.error("Fel vid inläsning/injektion:", err);
-        alert(
-          "Fel vid inläsning av data. Öppna utvecklarkonsolen (F12) för detaljer."
-        );
-      }
-    })();
-  </script>
-</body>
-</html>
+  
