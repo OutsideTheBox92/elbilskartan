@@ -423,9 +423,65 @@
     // ------- Kolada-hämtning -------
 
     function getLatestValueFromKoladaResponse(data) {
-      if (!data || !Array.isArray(data.values)) return null;
-      const rows = data.values;
-      let best = null;
+  if (!data) return null;
+
+  let rows = null;
+
+  // Vanliga varianter: v2/v3 eller wrapper
+  if (Array.isArray(data.values)) {
+    rows = data.values;
+  } else if (Array.isArray(data.data)) {
+    rows = data.data;
+  } else if (Array.isArray(data.results)) {
+    rows = data.results;
+  } else if (Array.isArray(data)) {
+    rows = data;
+  }
+
+  // Tabellformat: columns + data = [ [..], [..] ]
+  if (!rows && Array.isArray(data.columns) && Array.isArray(data.data)) {
+    const cols = data.columns.map(c => c.toLowerCase());
+    const valueIndex = cols.findIndex(c => c.includes('value') || c.includes('värde'));
+    const yearIndex  = cols.findIndex(c => c.includes('year') || c.includes('period'));
+    if (valueIndex !== -1) {
+      rows = data.data.map(r => ({
+        value: Number(r[valueIndex]),
+        year: yearIndex !== -1 ? Number(r[yearIndex]) : null
+      }));
+    }
+  }
+
+  if (!rows || !rows.length) return null;
+
+  // Mappa om till enkel struktur om raderna är "råa"
+  rows = rows.map(row => {
+    // Objekt med nycklar
+    if (row && typeof row === 'object' && !Array.isArray(row)) {
+      const year =
+        Number(row.year ?? row.period ?? row.time ?? 0);
+      const value =
+        Number(row.value ?? row.Varde ?? row.varde ?? row.val ?? 0);
+      return { year, value };
+    }
+    // Arrays (om det skulle komma så)
+    return row;
+  });
+
+  // Filtrera bort rader utan värde
+  rows = rows.filter(r => typeof r.value === 'number' && !isNaN(r.value));
+
+  if (!rows.length) return null;
+
+  // Välj senaste år (om år finns), annars första
+  let best = rows[0];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (r.year && (!best.year || r.year > best.year)) {
+      best = r;
+    }
+  }
+  return best;
+}
 
       rows.forEach(row => {
         const year = Number(row.year || row.period || row.time || 0);
